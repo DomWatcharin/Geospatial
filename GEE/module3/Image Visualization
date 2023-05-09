@@ -1,0 +1,58 @@
+//Image Visualization Hand on 
+// Code provided by Dr.Sitthisak Moukomla 
+/*
+เราจะทดลองทำการแสดงข้อมูล (Visualization)
+สามส่วนได้แก่ สีผสมจริง (True Color),
+สีผสมเท็จ (False Color), และ ข้อมูลที่เป็น Feature โดยใช้ตัวอย่างของ DEM, Slope
+*/
+
+var Thailand = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(ee.Filter.eq('country_na', 'Thailand'));
+             // Map.addLayer(Thailand);
+
+var collection = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
+  .filterDate('2018-12-01','2022-02-28')
+  .filterBounds(Thailand)
+  .sort('CLOUD_COVER')
+var c = collection.median();
+
+// Applies scaling factors.
+function applyScaleFactors(image) {
+  var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2);
+  var thermalBands = image.select('ST_*.*').multiply(0.00341802).add(149.0);
+  return image.addBands(opticalBands, null, true)
+              .addBands(thermalBands, null, true);
+}
+
+var dataset = applyScaleFactors(c);
+
+//1) แสดงภาพสีผสมจริง (True Color Composite)
+  var trueColor432 = dataset.select(['SR_B4', 'SR_B3', 'SR_B2']).clip(Thailand);
+  var trueColor432Vis = {
+    bands: ['SR_B4', 'SR_B3', 'SR_B2'],
+    min: 0.0,
+    max: 0.25,
+};
+
+//2) แสดงสีผสมเท็จ (False Color Composite)
+
+var falseColor764 = dataset.select(['SR_B7', 'SR_B6', 'SR_B4']).clip(Thailand);
+var falseColor764Vis = {
+  bands: ['SR_B7', 'SR_B6', 'SR_B4'],
+  min: 0.0,
+  max: 0.25,
+};
+
+Map.addLayer(trueColor432, trueColor432Vis, 'True Color (432)');
+Map.addLayer(falseColor764, falseColor764Vis, 'False Color (764)');
+
+// 3) Display DEM Map
+var slope_palette = 'gray, pink, green, yellow, red'
+var DEM = ee.Image('USGS/SRTMGL1_003');
+var terrain = ee.Algorithms.Terrain(DEM);
+var slope = terrain.select('slope');
+var mask = slope.gt(0);
+var slope = slope.updateMask(mask)
+Map.addLayer(slope.clip(Thailand), {'min':0, 'max':10, 'palette': slope_palette}, "Slope");
+//4) แสดงแผนที่ Map Extent และ ระดับการซูม
+Map.centerObject(Thailand, 6);
+Map.setCenter(100, 13, 6);
