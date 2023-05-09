@@ -1,0 +1,27 @@
+// สอนทำ Pan-Sharpen ข้อมูล Landsat-8
+// Code provided by Dr.Sitthisak Moukomla 
+
+var geometry = /* color: #d63000 */ee.Geometry.Point([101.89166702324911, 15.226855816245648]);
+
+// เลือกข้อมูล L8 image แล้วดึงข้อมูล RGB( band 4-3-2) และ Panchromatic (band 8)
+var image = ee.Image(ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')
+  .filterDate('2022-01-01', '2022-01-30')
+  .filterBounds(geometry)
+  .sort('CLOUD_COVER')
+  .first());
+
+var rgb = image.select('B4', 'B3', 'B2');
+var pan = image.select('B8');
+
+// แปลง RGB เป็น HSV (Hue, Saturation, Value), แล้วเลือกเอาแบนด์ Pan เป็น RGB.
+var huesat = rgb.rgbToHsv().select('hue', 'saturation');
+var upres = ee.Image.cat(huesat, pan).hsvToRgb();
+
+// There are many fine places to look; here is one.  Comment
+// this out if you want to twiddle knobs while panning around.
+Map.centerObject(geometry, 10);
+
+// Display before and after layers using the same vis parameters.
+Map.addLayer(rgb, {max: 0.3}, 'RGB(4-3-2)');
+Map.addLayer(pan, {max: 0.3}, 'Panchrometic');
+Map.addLayer(upres, {max: 0.3}, 'Pansharpened');
