@@ -1,0 +1,65 @@
+// เล่นกับข้อมูล DEM--Code provided by Dr.Sitthisak Moukomla
+// 1) Get a feature collection of Thailand
+//var c = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(ee.Filter.eq('country_na', 'Thailand'));
+var c =ee.FeatureCollection("projects/ee-domwatcharin/assets/LRM")
+
+// 2) เรียก DSM จากข้อมูลของ JAXA
+var DSM =  ee.ImageCollection("JAXA/ALOS/AW3D30/V3_2")
+.select('DSM')
+.filterBounds(c)
+.max();
+var elevation_palette = 'green, blue, yellow, red';
+
+// 3) เรียกข้อมูลความสูงจาก NASA DEM 
+var dataset = ee.Image('NASA/NASADEM_HGT/001');
+var elevation = dataset.select('elevation');
+var elevationVis = {
+  min: 0,
+  max: 2000,
+};
+//4) ข้อมูล Landform จาก SRTM Landforms 
+var dataset = ee.Image('CSP/ERGo/1_0/Global/SRTM_landforms');
+var landforms = dataset.select('constant');
+var landformsVis = {
+  min: 11.0,
+  max: 42.0,
+  palette: [
+    '141414', '383838', '808080', 'EBEB8F', 'F7D311', 'AA0000', 'D89382',
+    'DDC9C9', 'DCCDCE', '1C6330', '68AA63', 'B5C98E', 'E1F0E5', 'a975ba',
+    '6f198c'
+  ],
+};
+
+// 5) แสดงแผนที่ 
+var slope_palette = 'gray, green, yellow, red';
+var DEM = ee.Image('USGS/SRTMGL1_003');
+var terrain = ee.Algorithms.Terrain(DEM);
+var slope = terrain.select('slope');
+var mask = slope.gt(0);
+var slope = slope.updateMask(mask)
+Map.addLayer(DSM.clip(c), {'min':0, 'max':2000, 'palette': elevation_palette}, "DSM");
+Map.addLayer(DEM.clip(c), {'min':0, 'max':2000, 'palette': elevation_palette}, "DEM");
+Map.addLayer(slope.clip(c), {'min':0, 'max':20, 'palette': slope_palette}, "Slope");
+Map.addLayer(elevation.clip(c).updateMask(elevation.gt(0)), elevationVis, 'Elevation');
+Map.addLayer(landforms.clip(c), landformsVis, 'Landforms');
+Map.centerObject(c, 10);
+
+Export.image.toAsset({
+  image: landforms,
+  description: 'imageToAssetLandforms',
+  assetId: 'Landforms',
+  scale: 30,
+  region: c,
+  crs: 'EPSG:32647',
+  pyramidingPolicy: {}
+});
+
+Export.image.toAsset({
+  image: slope,
+  description: 'imageToAssetSlope',
+  assetId: 'Slope',
+  scale: 30,
+  region: c,
+  crs: 'EPSG:32647',
+  pyramidingPolicy: {}
+});
