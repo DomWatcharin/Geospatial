@@ -1,0 +1,40 @@
+//Image Neighborhood Reducers Hand on
+// ตัวอย่าง Image Reducers
+// Code provided by Dr.Sitthisak Moukomla 
+
+// 1) เลือกพื้นที่ศึกษา 
+var Thailand = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(ee.Filter.eq('country_na', 'Thailand'));
+
+var addNDVIBands = function(image) {
+  var NDVI = image.addBands(image.normalizedDifference(['B8', 'B4']));
+ return NDVI.addBands(NDVI.metadata('system:time_start'));
+};
+
+// 2) โหลดข้อมูล Sentinel-2 ช่วงเวลาหนึ่งปีโดยให้มีเมฆประมาณ 10% จากนั้นคำนวณ NDVI
+
+var img = ee.ImageCollection('COPERNICUS/S2')
+.filterDate('2021-01-01', '2022-01-01')
+.filterBounds(Thailand)
+.filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))
+.map(addNDVIBands);
+var img_ndvi = ee.ImageCollection(img).select("nd");
+
+//3) Median Reducer ลดรูปโดยมัธยฐาน
+
+var ndvi = img_ndvi.median();
+print(ndvi);
+
+// 4) Neighborhood Reducers โดยการ คำนวณ standard deviation (SD) เพื่อใช้เป็น reduce ของ NDVI โดยใช้ Kernel แบบวงกลม 3x3 pixel
+
+var SD_Kernel = ndvi.reduceNeighborhood({
+  reducer: ee.Reducer.stdDev(),
+  kernel: ee.Kernel.circle(1),
+});
+
+// 5) แต่งหน้าแต่งตาพร้อม แสดงผล
+
+var vizParams = {'bands': ['B4', 'B3', 'B2'], 'min': 0, 'max': 3000};
+Map.addLayer(img.min().clip(Thailand), vizParams, "Sentinel 2 Thailand");
+Map.addLayer(ndvi.clip(Thailand), {min: -1, max: 1, palette: ['00FF00', '000000']}, 'NDVI_Median');
+Map.addLayer(SD_Kernel.clip(Thailand), {min: 0, max: 0.3}, 'SD Kernel NDVI');
+Map.centerObject(Thailand, 9);
