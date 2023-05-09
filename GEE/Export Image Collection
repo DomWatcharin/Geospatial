@@ -1,0 +1,69 @@
+// สอนทำ Export ข้อมูลภาพ
+// Code provided by Dr.Sitthisak Moukomla 
+
+
+// ดึงข้อมูล landsat และเลือกแบนด์ 
+var Landsat8 = ee.Image('LANDSAT/LC08/C01/T1_TOA/LC08_170052_20170108').select(['B4', 'B3', 'B2']);
+//print('Collection: ', Landsat8);
+
+var visParams = {bands: ['B4', 'B3', 'B2'], max: 0.3};
+Map.addLayer(Landsat8, visParams, 'Landsat 8 Image');
+
+//0) สร้างขอบเขตโดยใช้ Geometry 
+// 1) กำหนด region
+var region =geometry;
+//var region = ee.FeatureCollection('projects/ee-domwatcharin/assets/LRM')
+//var c = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017')
+var c =ee.FeatureCollection("projects/ee-domwatcharin/assets/LRM")
+Map.addLayer(region, {}, "Region");
+Map.centerObject(region, 10);
+/*
+// 1. Export to Drive
+Export.image.toDrive({
+  image: Landsat8,
+  description: 'imageToDriveLandsat',
+  scale: 30,
+  region: region
+});
+
+// 2. Export to Cloud Storage
+Export.image.toCloudStorage({
+  image: Landsat8,
+  description: 'imageToCloudLandsat',
+  bucket: 'test',
+  fileNamePrefix: 'LandsatExport',
+  scale: 30,
+  region: region
+});
+*/
+// 3. Export to Asset
+Export.image.toAsset({
+  image: Landsat8,
+  description: 'imageToAssetLandsat',
+  assetId: 'LandsatExport',
+  scale: 30,
+  region: region,
+  pyramidingPolicy: {}
+});
+/////////////////////////////////////////////
+//ตัวอย่างการ Export แบบ batch หลายๆวัน
+//กำหนดพื้นที่สนในโดย Geometry 
+var rainfall = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+var batch = require('users/fitoprincipe/geetools:batch')
+
+var col = rainfall
+    .filterDate('2021-01-01', '2021-12-31').select(
+        'precipitation').filterBounds(geometry);
+
+print(col)
+
+var listOfImages = col.toList(col.size());
+var Image1 = listOfImages.get(0);
+//var Image2 = listOfImages.get(1);
+//Map.addLayer(ee.Image(Image2).select('u-component_of_wind_hybrid').clip(geometry))
+Map.centerObject(geometry,6) 
+batch.Download.ImageCollection.toDrive(col, "EEC_Rainfall", 
+ {
+  scale: 5000,
+  region: geometry.getInfo()
+})
