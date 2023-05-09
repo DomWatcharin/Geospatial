@@ -1,0 +1,26 @@
+var c =ee.FeatureCollection("projects/ee-domwatcharin/assets/LRM")
+var dataset = ee.Image("OpenLandMap/SOL/SOL_TEXTURE-CLASS_USDA-TT_M/v02");
+
+var visualization = {
+  bands: ['b0'],
+  min: 1.0,
+  max: 12.0,
+  palette: [
+    "d5c36b","b96947","9d3706","ae868f","f86714","46d143",
+    "368f20","3e5a14","ffd557","fff72e","ff5a9d","ff005b",
+  ]
+};
+
+Map.centerObject(c,10);
+
+Map.addLayer(dataset.clip(c), visualization, "Soil texture class (USDA system)");
+
+Export.image.toAsset({
+  image: dataset,
+  description: 'Soil Texture Class',
+  assetId: 'Soil Texture Class',
+  scale: 100,
+  region: c,
+  crs: 'EPSG:32647',
+  pyramidingPolicy: {}
+});
