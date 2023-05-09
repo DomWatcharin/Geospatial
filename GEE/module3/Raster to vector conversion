@@ -1,0 +1,46 @@
+// Raster to Vector Conversion ขอบเขตเมืองจากแสงไฟ
+// Code provided by Dr.Sitthisak Moukomla 
+
+// 1) โหลดพื้นที่ศึกษาในประเทศไทย
+var countries = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017');
+var Thailand = countries.filter(ee.Filter.eq('country_na', 'Thailand'));
+Map.addLayer(Thailand, {'palette': 'f03b20', 'opacity': 1}, "Thailand", false);
+Map.centerObject(Thailand, 10);
+
+
+
+// โหลดข้อมูลแสงไฟ VIIRS night time light.
+var start = ee.Date('2019-04-01');
+var end = ee.Date('2019-04-30');
+var night = ee.ImageCollection('NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG')
+.filterDate(start, end) 
+.filterBounds(Thailand)
+.select('avg_rad')
+.median();
+
+
+
+// Define arbitrary thresholds on the nightlights image.
+var nightclass = night.gt(5).add(night.gt(50)).add(night.gt(100)); 
+nightclass = nightclass.updateMask(nightclass.neq(0));
+
+// Convert the zones of the thresholded nightlights to vectors.
+var vectors = nightclass.addBands(nightclass).reduceToVectors({
+  geometry: Thailand,
+  crs: night.projection(),
+  scale: 1000,
+  geometryType: 'polygon',
+  eightConnected: false,
+  labelProperty: 'nightclass',
+  reducer: ee.Reducer.median()
+});
+
+
+// Display the thresholds.
+Map.addLayer(night.clip(Thailand), {min: 1, max: 3, palette: ['0000FF', '00FF00', 'FF0000']}, 'Raster');
+Map.addLayer(nightclass.clip(Thailand), {min: 1, max: 3, palette: ['0000FF', '00FF00', 'FF0000']}, 'Raster');
+
+// Make a display image for the vectors, add it to the map.
+var display = ee.Image(0).updateMask(0).paint(vectors, '000000', 3);
+Map.addLayer(display, {palette: '000000'}, 'Vector');
+Map.centerObject(Thailand, 6);
