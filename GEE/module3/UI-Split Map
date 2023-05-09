@@ -1,0 +1,40 @@
+//สอนทำ UI Split Map เพื่อเปรียบเทียบข้อมูล 2 ช่วงเวลา 
+//1) ทำเรียกข้อมูล เพื่อทำ NDVI 
+var s2 = ee.ImageCollection("COPERNICUS/S2")
+var RGB_VIS = {min: 0, max: 3000, gamma: 1.5, bands: ['B4', 'B3', 'B2']};
+function addNDVI(image) {
+  var ndvi = image.normalizedDifference(['B8', 'B4']); // Sentinel 2
+  return image.addBands(ndvi.rename('ndvi'));
+}
+
+//2) ทำการวิเคราะห์ข้อมูล
+var filtered = s2.filterDate('2016-01-01', '2021-01-01');
+var with_ndvi = filtered.map(addNDVI);
+var greenest = with_ndvi.qualityMosaic('ndvi');
+
+//3) ทำข้อมูลของแผนที่สองช่วงเวลา 
+var map1 = ui.Map();
+map1.add(ui.Panel({
+  widgets:[ui.Label('True Color Composite')],
+  style: {position: 'bottom-left'}
+}));
+map1.addLayer(with_ndvi.median(), RGB_VIS, 'RGB');
+
+var map2 = ui.Map();
+map2.add(ui.Panel({
+  widgets:[ui.Label('Greenest Pixel Composite')],
+  style: {position: 'bottom-right'}
+}));
+map2.addLayer(greenest, RGB_VIS, 'RGB (greenest pixel)');
+
+// 4) ทำ Link ของแผนที่สองอัน
+var linker = ui.Map.Linker([map1,map2]);
+
+// 5) UI Split เพื่อแยกแผนที่ 
+var splitMap = ui.SplitPanel({
+  firstPanel: map1,
+  secondPanel: map2,
+  wipe: true,
+});
+ui.root.widgets().reset([splitMap]);
+map1.setCenter(100.5, 13.7, 12);
