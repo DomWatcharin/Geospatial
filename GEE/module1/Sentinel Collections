@@ -1,0 +1,21 @@
+// บทเรียน Sentinel Data Hand on 
+// Code provided by Dr.Sitthisak Moukomla 
+
+//1) AOI สำหรับดึงภาพ Sentinel1
+var c = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017')
+.filter(ee.Filter.eq('country_na', 'Thailand'));
+
+// Get the VV collection.
+var collectionVV = ee.ImageCollection('COPERNICUS/S1_GRD')
+    .filter(ee.Filter.eq('instrumentMode', 'IW'))
+    .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
+    .filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING'))
+    .select(['VH']);
+
+// Create a 3 band stack by selecting from different periods (months)
+var im1 = ee.Image(collectionVV.filterDate('2021-08-01', '2021-08-30').median());
+var im2 = ee.Image(collectionVV.filterDate('2021-10-01', '2021-10-30').median());
+var im3 = ee.Image(collectionVV.filterDate('2021-12-01', '2021-12-30').median());
+
+Map.setCenter(100.9,13.9, 11);
+Map.addLayer(im1.addBands(im2).addBands(im3).clip(c), {min: -25, max: 0}, 'VV stack');
