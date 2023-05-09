@@ -1,0 +1,33 @@
+//Filtering Image Collection Hand on 
+// Code provided by Dr.Sitthisak Moukomla 
+/*
+ส่วนใหญ่แล้วการ Filter ใน GEE จะประกอบด้วย 
+imageCollection.filterDate()
+imageCollection.filterBounds()
+imageCollection.filter() 
+ดังตัวอย่างต่อไปนี้ 
+*/
+
+//1) ตัวอย่าง filter ชุดข้อมูล ที่เป็น feature collection
+var Thailand = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017')
+.filter(ee.Filter.eq('country_na', 'Thailand'));
+
+//2) ตัวอย่าง filter date
+var image = ee.ImageCollection('COPERNICUS/S2_SR')
+.filterDate('2021-01-01', '2021-03-01')
+
+
+
+//3) ตัวอย่าง filter เมฆ และ filter ขอบเขต
+
+.filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10)) 
+.filterBounds(Thailand)
+.median()
+;
+
+// 4) Image Visualization ผสมแบนด์ 
+var visParamsTrue = {bands: ['B2', 'B3', 'B4'], min: 0, max: 2500, gamma: 2};
+
+// 5) แสดงแผนที่ 
+Map.addLayer(image, visParamsTrue, "Sentinel-2 Jan 2022");
+Map.centerObject(Thailand, 5);
