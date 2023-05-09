@@ -1,0 +1,24 @@
+// ข้อมูลน้ำจาก JRC Global Surface Water
+//var c = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(ee.Filter.eq('country_na', 'Thailand'));
+var c =ee.FeatureCollection("projects/ee-domwatcharin/assets/LRM")
+var dataset = ee.Image("JRC/GSW1_3/GlobalSurfaceWater");
+var Occurrence = dataset.select('occurrence');
+var Recurrence = dataset.select('recurrence'); 
+var Seasonality = dataset.select('seasonality');
+
+var visualization = {
+  min: 0.0,
+  max: 100.0,
+  palette: ['pink', 'red', 'blue']
+};
+
+var vis = {
+  min: 0.0,
+  max: 12.0,
+  palette: ['red','yellow', 'green','blue']
+};
+Map.addLayer(Occurrence.clip(c), visualization, 'Ocurrence', true);
+Map.addLayer(Recurrence.clip(c), visualization, 'Recurrence',false);
+Map.addLayer(Seasonality.clip(c), vis, 'Seasonality',false);
+Map.setOptions('SATELLITE');
+Map.centerObject(c,10)
