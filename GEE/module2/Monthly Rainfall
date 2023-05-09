@@ -1,0 +1,334 @@
+var geometry = /* color: #23cba7 */ee.Geometry.MultiPoint();
+
+/*
+//Monthly Rainfall (แบ่งช่วง เดือน-ปี ได้ )
+//var c = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(ee.Filter.eq('country_na', 'Thailand'));
+var c =ee.FeatureCollection("projects/ee-domwatcharin/assets/LRM")
+
+// 1) ตัวอย่าง ข้อมูล Monthly Global Precipitation Measurement (GPM)rainfall (11132 meters)
+var dataset = ee.ImageCollection("NASA/GPM_L3/IMERG_MONTHLY_V06");
+var prec = dataset.select('precipitation');
+var img = prec.filter(ee.Filter.calendarRange(2019,2019,'year'))
+          .filter(ee.Filter.calendarRange(4,4,'month'));
+var GPM = img.max(); 
+//Visualization 
+var precVis = {
+  min: 0.0,
+  max: 0.5,
+  palette: ['0300ff', '418504', 'efff07', 'efff07', 'blue'],
+};
+Map.centerObject(c, 10);
+Map.addLayer(GPM.clip(c), precVis, 'GPM Precipitation (mm/hr)');
+///////////////////////////////////////////////////////////////////////////
+// 2) ตัวอย่างข้อมูล Climate Hazards Group InfraRed Precipitation with Station data (CHIRPS) 30+ Years (5566 meters)
+//var c = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(ee.Filter.eq('country_na', 'Thailand'));
+var c =ee.FeatureCollection("projects/ee-domwatcharin/assets/LRM")
+var dataset2 = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+var prec2 = dataset2.select('precipitation');
+var img2 = prec2.filter(ee.Filter.calendarRange(2019,2019,'year'))
+        .filter(ee.Filter.calendarRange(4,4,'month'));
+var CHIRPS = img2.max(); 
+//Visualization 
+var precVis2 = {
+  min: 0.0,
+  max: 100,
+  palette: ['0300ff', '418504', 'efff07', 'efff07', 'blue'],
+};
+Map.centerObject(c, 10);
+Map.addLayer(CHIRPS.clip(c), precVis2, 'CHIRPS Precipitation (mm/day)');
+
+*/
+
+
+// Rainfall with UI// 
+var c = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(ee.Filter.eq('country_na', 'Thailand'));
+var dataset = ee.ImageCollection('JAXA/GPM_L3/GSMaP/v6/operational').filter(ee.Filter.date('2021-08-01','2021-09-30'));
+// Select the max precipitation and mask out low precipitation values.
+var precipitation = dataset.first().select('hourlyPrecipRate');
+var mask = precipitation.gt(0.1);
+var rain = precipitation.updateMask(mask);
+var precipitationVis =  {
+  min: 0.0,
+  max: 5.0,
+  palette: ['040274', '040281', '0502a3', '0502b8', '0502ce', '0502e6',
+    '0602ff', '235cb1', '307ef3', '269db1', '30c8e2', '32d3ef',
+    '3be285', '3ff38f', '86e26f', '3ae237', 'b5e22e', 'd6e21f',
+    'fff705', 'ffd611', 'ffb613', 'ff8b13', 'ff6e08', 'ff500d',
+    'ff0000', 'de0101', 'c21301', 'a71001', '911003'],
+};
+Map.centerObject(c, 4);
+Map.addLayer(
+  rain.clip(c), precipitationVis, 'Default visualization');
+
+var drawingTools = Map.drawingTools();
+drawingTools.setShown(false);
+while (drawingTools.layers().length() > 0) {
+  var layer = drawingTools.layers().get(0);
+  drawingTools.layers().remove(layer);
+}
+var dummyGeometry =
+    ui.Map.GeometryLayer({geometries: null, name: 'geometry', color: '23cba7'});
+
+drawingTools.layers().add(dummyGeometry);
+
+function clearGeometry() {
+  var layers = drawingTools.layers();
+  layers.get(0).geometries().remove(layers.get(0).geometries().get(0));
+}
+
+function drawRectangle() {
+  clearGeometry();
+  drawingTools.setShape('rectangle');
+  drawingTools.draw();
+}
+
+function drawPolygon() {
+  clearGeometry();
+  drawingTools.setShape('polygon');
+  drawingTools.draw();
+}
+
+function drawPoint() {
+  clearGeometry();
+  drawingTools.setShape('point');
+  drawingTools.draw();
+}
+
+var chartPanel = ui.Panel({
+  style:
+      {height: '235px', width: '600px', position: 'bottom-right', shown: false}
+});
+
+Map.add(chartPanel);
+
+
+function chartTimeSeries() {
+  // Make the chart panel visible the first time a geometry is drawn.
+  if (!chartPanel.style().get('shown')) {
+    chartPanel.style().set('shown', true);
+  }
+
+  // Get the drawn geometry; it will define the reduction region.
+  var aoi = drawingTools.layers().get(0).getEeObject();
+
+  // Set the drawing mode back to null; turns drawing off.
+  drawingTools.setShape(null);
+
+  // Reduction scale is based on map scale to avoid memory/timeout errors.
+  var mapScale = Map.getScale();
+  var scale = mapScale > 500 ? mapScale * 2 : 500;
+ 
+  // Chart LAI time series for the selected area of interest.
+  var chart = ui.Chart.image
+                  .seriesByRegion({
+                    imageCollection: dataset,
+                    regions: aoi,
+                    reducer: ee.Reducer.mean(),
+                    band: 'hourlyPrecipRate',
+                    scale: scale,
+                    xProperty: 'system:time_start'
+                  })
+                  .setOptions({
+                    titlePostion: 'none',
+                    legend: {position: 'none'},
+                    hAxis: {title: 'Date'},
+                    vAxis: {title: 'Precipitation'},
+                    series: {0: {color: '23cba7'}}
+                  });
+
+  // Replace the existing chart in the chart panel with the new chart.
+  chartPanel.widgets().reset([chart]);
+}
+
+drawingTools.onDraw(ui.util.debounce(chartTimeSeries, 500));
+drawingTools.onEdit(ui.util.debounce(chartTimeSeries, 500));
+
+var symbol = {
+  rectangle: '⬛',
+  polygon: '🔺',
+  point: '📍',
+};
+
+var controlPanel = ui.Panel({
+  widgets: [
+    ui.Label('1. เลือกเครื่องมือ กำหนดขอบเขต'),
+    ui.Button({
+      label: symbol.rectangle + ' Rectangle',
+      onClick: drawRectangle,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Button({
+      label: symbol.polygon + ' Polygon',
+      onClick: drawPolygon,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Button({
+      label: symbol.point + ' Point',
+      onClick: drawPoint,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Label('2. วาด geometry.'),
+    ui.Label('3. รอ..ใจเย็น... กำลังวาดกราฟ'),
+    ui.Label(
+        '4. ทำซ้ำจาก 1-3 หรือ แก้ไข เปลี่ยน ย้าย\ngeometry เพื่อวาดกราฟใหม่',
+        {whiteSpace: 'pre'})
+  ],
+  style: {position: 'bottom-left'},
+  layout: null,
+});
+
+Map.add(controlPanel);
+Map.setCenter(100,13,6);
+
+
+/////Rainfall and UI
+
+var c = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(ee.Filter.eq('country_na', 'Thailand'));
+var dataset = ee.ImageCollection('JAXA/GPM_L3/GSMaP/v6/operational').filter(ee.Filter.date('2021-08-01','2021-09-30'));
+// Select the max precipitation and mask out low precipitation values.
+var precipitation = dataset.first().select('hourlyPrecipRate');
+var mask = precipitation.gt(0.1);
+var rain = precipitation.updateMask(mask);
+var precipitationVis =  {
+  min: 0.0,
+  max: 5.0,
+  palette: ['040274', '040281', '0502a3', '0502b8', '0502ce', '0502e6',
+    '0602ff', '235cb1', '307ef3', '269db1', '30c8e2', '32d3ef',
+    '3be285', '3ff38f', '86e26f', '3ae237', 'b5e22e', 'd6e21f',
+    'fff705', 'ffd611', 'ffb613', 'ff8b13', 'ff6e08', 'ff500d',
+    'ff0000', 'de0101', 'c21301', 'a71001', '911003'],
+};
+Map.centerObject(c, 4);
+Map.addLayer(
+  rain.clip(c), precipitationVis, 'Default visualization');
+
+var drawingTools = Map.drawingTools();
+drawingTools.setShown(false);
+while (drawingTools.layers().length() > 0) {
+  var layer = drawingTools.layers().get(0);
+  drawingTools.layers().remove(layer);
+}
+var dummyGeometry =
+    ui.Map.GeometryLayer({geometries: null, name: 'geometry', color: '23cba7'});
+
+drawingTools.layers().add(dummyGeometry);
+
+function clearGeometry() {
+  var layers = drawingTools.layers();
+  layers.get(0).geometries().remove(layers.get(0).geometries().get(0));
+}
+
+function drawRectangle() {
+  clearGeometry();
+  drawingTools.setShape('rectangle');
+  drawingTools.draw();
+}
+
+function drawPolygon() {
+  clearGeometry();
+  drawingTools.setShape('polygon');
+  drawingTools.draw();
+}
+
+function drawPoint() {
+  clearGeometry();
+  drawingTools.setShape('point');
+  drawingTools.draw();
+}
+
+var chartPanel = ui.Panel({
+  style:
+      {height: '235px', width: '600px', position: 'bottom-right', shown: false}
+});
+
+Map.add(chartPanel);
+
+
+function chartTimeSeries() {
+  // Make the chart panel visible the first time a geometry is drawn.
+  if (!chartPanel.style().get('shown')) {
+    chartPanel.style().set('shown', true);
+  }
+
+  // Get the drawn geometry; it will define the reduction region.
+  var aoi = drawingTools.layers().get(0).getEeObject();
+
+  // Set the drawing mode back to null; turns drawing off.
+  drawingTools.setShape(null);
+
+  // Reduction scale is based on map scale to avoid memory/timeout errors.
+  var mapScale = Map.getScale();
+  var scale = mapScale > 500 ? mapScale * 2 : 500;
+ 
+  // Chart LAI time series for the selected area of interest.
+  var chart = ui.Chart.image
+                  .seriesByRegion({
+                    imageCollection: dataset,
+                    regions: aoi,
+                    reducer: ee.Reducer.mean(),
+                    band: 'hourlyPrecipRate',
+                    scale: scale,
+                    xProperty: 'system:time_start'
+                  })
+                  .setOptions({
+                    titlePostion: 'none',
+                    legend: {position: 'none'},
+                    hAxis: {title: 'Date'},
+                    vAxis: {title: 'Precipitation'},
+                    series: {0: {color: '23cba7'}}
+                  });
+
+  // Replace the existing chart in the chart panel with the new chart.
+  chartPanel.widgets().reset([chart]);
+}
+
+drawingTools.onDraw(ui.util.debounce(chartTimeSeries, 500));
+drawingTools.onEdit(ui.util.debounce(chartTimeSeries, 500));
+
+var symbol = {
+  rectangle: '⬛',
+  polygon: '🔺',
+  point: '📍',
+};
+
+var controlPanel = ui.Panel({
+  widgets: [
+    ui.Label('1. เลือกเครื่องมือ กำหนดขอบเขต'),
+    ui.Button({
+      label: symbol.rectangle + ' Rectangle',
+      onClick: drawRectangle,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Button({
+      label: symbol.polygon + ' Polygon',
+      onClick: drawPolygon,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Button({
+      label: symbol.point + ' Point',
+      onClick: drawPoint,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Label('2. วาด geometry.'),
+    ui.Label('3. รอ..ใจเย็น... กำลังวาดกราฟ'),
+    ui.Label(
+        '4. ทำซ้ำจาก 1-3 หรือ แก้ไข เปลี่ยน ย้าย\ngeometry เพื่อวาดกราฟใหม่',
+        {whiteSpace: 'pre'})
+  ],
+  style: {position: 'bottom-left'},
+  layout: null,
+});
+
+Map.add(controlPanel);
+Map.setCenter(100,13,6);
+
+/*
+Export.image.toDrive({
+  image: EVI,
+  description: 'EVI',
+ scale: 10,
+ region: c,
+ maxPixels: 1e13,
+ crs: 'EPSG:32647',
+});
+*/
