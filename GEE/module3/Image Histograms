@@ -1,0 +1,44 @@
+// สอนทำ Histrogams Hand on
+// Code provided by Dr.Sitthisak Moukomla 
+
+// ก่อนอื่นให้สร้าง geometry แบบจุด เพื่อกำหนด Sample point
+//1) Load ข้อมูล Landsat 8 top-of-atmosphere (TOA) input imagery.
+var Landsat_Collection = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA').select('B[1-5]')
+.filterBounds(geometry)
+
+// 2) เลือกข้อมูล เมฆน้อย 
+var image = ee.Image(Landsat_Collection.sort('CLOUD_COVER').first());
+print('Least cloudy image: ', image);
+
+//3) แต่งหน้าแต่งตา 
+var vizTrue = {
+  bands: ['B4', 'B3', 'B2'],
+  min: 0,
+  max: 0.5,
+  gamma: [0.95, 1.1, 1]
+};
+//4) กำหนด Sample point เพื่อ สร้าง Histrogram
+var Sample_Point = geometry.buffer(500);
+Map.addLayer(image, vizTrue, 'Landsat Cloud Free Composite');
+Map.addLayer(Sample_Point, {}, 'Sample Point');
+Map.centerObject(image, 10);
+
+// Pre-define some customization options for histogram.
+var options = {
+  title: 'Histogram ข้อมูล Landsat 8 (Bands 1-5)',
+  fontSize: 20,
+  hAxis: {title: 'DN'},
+  vAxis: {title: 'DN Count'},
+  series: {
+    0: {color: 'blue'},
+    1: {color: 'green'},
+    2: {color: 'red'},
+    3: {color: 'magenta'}}
+};
+// Make the histogram, set the options.
+var histogram = ui.Chart.image.histogram(image, Sample_Point, 30)
+    .setSeriesNames(['blue', 'green', 'red', 'NIR'])
+    .setOptions(options);
+
+// Display the histogram.
+print(histogram);
