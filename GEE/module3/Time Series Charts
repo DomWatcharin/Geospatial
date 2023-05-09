@@ -1,0 +1,23 @@
+// สอนทำ Time Series Hand on
+// Code provided by Dr.Sitthisak Moukomla 
+
+//1) กำหนด Geometry
+
+//2) นำเข้าภาพดาวเทียม Landsat-8 
+var L8 = ee.ImageCollection("LANDSAT/LC08/C01/T1_TOA")
+var RGB_VIS = {min: 0, max: 0.25, gamma: 0.8, bands: ['B4', 'B3', 'B2']};
+
+//////////////// Functions ////////////////
+function addNDVI(image) {
+  var ndvi = image.normalizedDifference(['B5', 'B4']); // Landsat 8
+  return image.addBands(ndvi.rename('ndvi'));
+}
+
+//////////////// Analysis ////////////////
+var filtered = L8.filterDate('2016-04-01', '2022-01-01');
+var with_ndvi = filtered.map(addNDVI);
+
+//////////////// User Interface ////////////////
+Map.addLayer(with_ndvi.median(), RGB_VIS, 'RGB');
+Map.addLayer(with_ndvi, {bands:'ndvi', min:0, max:1}, 'NDVI');
+print(ui.Chart.image.series(with_ndvi.select('ndvi'), geometry));
