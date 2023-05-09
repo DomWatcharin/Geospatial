@@ -1,0 +1,49 @@
+// สอนทำ UI Slider เลือกรูปภาพจากคอลเลกชั่นด้วยแถบเลื่อน
+
+var collection = ee.ImageCollection("NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG")
+    .select('avg_rad')
+
+// 1) ฟังก์ชันตัวช่วยแสดงรูปภาพสำหรับปีที่กำหนดบนแผนที่เริ่มต้น
+
+var showLayer = function(year) {
+  Map.layers().reset();
+  var date = ee.Date.fromYMD(year, 1, 1);
+  var dateRange = ee.DateRange(date, date.advance(1, 'year'));
+  var image = collection.filterDate(dateRange).first();
+  Map.addLayer({
+    eeObject: ee.Image(image),
+    visParams: {
+      min: 0,
+      max: 63,
+      palette:['000000', 'FFFF00', 'FFA500', 'FF4500', 'FF0000']
+    },
+    name: String(year)
+  });
+};
+
+// สร้าง Label และตัวเลื่อน
+var label = ui.Label('Bankok Light Intensity for Year 2014-2021');
+var slider = ui.Slider({
+  min: 2014,
+  max: 2021,
+  step: 1,
+  onChange: showLayer,
+  style: {stretch: 'horizontal'}
+});
+
+// สร้างแผงที่มีทั้งตัวเลื่อนและ Label
+var panel = ui.Panel({
+  widgets: [label, slider],
+  layout: ui.Panel.Layout.flow('vertical'),
+  style: {
+    position: 'top-center',
+    padding: '7px'
+  }
+});
+
+// เพิ่ม panel แผนที่
+Map.add(panel);
+
+// ตั้งค่าเริ่มต้น slider และแผนที่ 
+slider.setValue(2021);
+Map.setCenter(100.5, 13.7, 10);
