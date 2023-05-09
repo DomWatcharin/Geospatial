@@ -1,0 +1,30 @@
+//บทเรียน MODIS data Hand on 
+//// Code provided by Dr.Sitthisak Moukomla 
+
+//Thailand 
+var c = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(ee.Filter.eq('country_na', 'Thailand'));
+
+//MODIS Surface Reflectance 
+var dataset = ee.ImageCollection('MODIS/006/MOD09GA')
+                  .filter(ee.Filter.date('2021-12-01', '2021-12-15'))
+                  .filterBounds(c);
+var trueColor143 =
+    dataset.select(['sur_refl_b01', 'sur_refl_b04', 'sur_refl_b03']).median();
+var trueColor143Vis = {
+  min: -100.0,
+  max: 8000.0,
+  gamma:1.8,
+};
+Map.addLayer(trueColor143.clip(c), trueColor143Vis, 'True Color (143)');
+// MODIS NDWI 
+var dataset = ee.ImageCollection('MODIS/MOD09GA_006_NDWI')
+                  .filter(ee.Filter.date('2021-12-01', '2021-12-15'))
+                  .filterBounds(c);
+var colorized = dataset.select('NDWI').median();
+var colorizedVis = {
+  min: -0.05,
+  max: 0.1,
+  palette: ['0000ff', '00ffff', 'ffff00', 'ff0000', 'ffffff'],
+};
+Map.centerObject(c, 5);
+Map.addLayer(colorized.clip(c), colorizedVis, 'Colorized');
